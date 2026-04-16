@@ -1,15 +1,23 @@
-use actix_web::{ App, HttpServer};
+use std::sync::Arc;
 
+use actix_web::{web::Data, App, HttpServer};
+use std::sync::Mutex;
+
+use crate::orderbook::Orderbook;
 use crate::routes::{create_order, delete_order, get_depth};
 
 pub mod routes;
 pub mod output;
 pub mod inputs;
+pub mod orderbook;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
+    let orderbook = Arc::new(Mutex::new(Orderbook::new()));
+
     HttpServer::new(move || {
         App::new()
+            .app_data(orderbook.clone())
             .service(create_order)
             .service(delete_order)
             .service(get_depth)
@@ -18,6 +26,5 @@ async fn main() -> Result<(), std::io::Error> {
     .run()
     .await
 }
-
 
 
