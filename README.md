@@ -1,6 +1,6 @@
 # CEX Orderbook
 
-![CEX Orderbook Architecture](./assets/architecture-overview.svg)
+![CEX Orderbook Architecture](/public/cex_orderbook_image_01.png)
 
 Rust-based centralized exchange orderbook API scaffold built with Actix Web. The project exposes a small HTTP surface for creating orders, cancelling orders, and reading market depth, with the code structured to evolve into an in-memory matching engine.
 
