@@ -1,55 +1,106 @@
-use crate::{inputs::Side, output::Depth};
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
+use crate::inputs::{CreateOrderInput, DeleteOrderInput, Side};
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OpenOrder {
+    pub price: f64,           //kis price pe
+    pub quantity: f64,        //kitna amount
+    pub side: Side,           // buy ya sell
+    pub user_id: String,      // kis user ka
+    pub order_id: String,     //kaunsa order
+    pub filled_quantity: f64, //kitna fill hua
+}
+
 pub struct Orderbook {
-    pub bids: HashMap<u32, Vec<UserOrder>>,
-    pub asks: HashMap<u32, Vec<UserOrder>>,
-    pub order_id_index : u32
-   
+    pub bids: HashMap<String, Vec<OpenOrder>>, //"100" => vec![order1, order2, order3]
+    pub asks: HashMap<String, Vec<OpenOrder>>,
+    pub order_id_index: u64,
 }
 
-pub struct UserOrder {
-    pub user_id: u32,
-    pub qty: u32,
-    pub order_id: u32,
+#[derive(Serialize, Deserialize)]
+pub struct Depth {
+    pub price: f64,
+    pub quantity: f64,
 }
 
-impl Orderbook {
-    pub  fn new() -> Self {
+#[derive(Serialize, Deserialize)]
+pub struct DepthResponse {
+    pub bids: Vec<Depth>,
+    pub asks: Vec<Depth>,
+}
+
+impl Default for Orderbook {
+    fn default() -> Self {
         Self {
             bids: HashMap::new(),
             asks: HashMap::new(),
-            order_id_index:0,
+            order_id_index: 0,
         }
     }
 }
 
 impl Orderbook {
-    pub fn create_order(&mut self, price: u32, quantity: u32, user_id: u32, side: Side) {
-        self.order_id_index +=1;
-        let order_id = self.order_id_index;
-        if side == Side::Buy {
-           self.bids
-                .entry(price)
-                .or_insert(Vec::new())
-                .push(UserOrder {
-                    user_id,
-                    qty: (quantity),
-                    order_id: (12322),
-                });
-        } else {
-            self.asks
-                .entry(price)
-                .or_insert(Vec::new())
-                .push(UserOrder {
-                    user_id,
-                    qty: (quantity),
-                    order_id: (12322),
-                });
+    pub fn create_order(&mut self, order: CreateOrderInput) {
+        let order_id = self.order_id_index.to_string();
+        self.order_id_index += 1;
+        match order.side {
+            Side::Buy => {
+                let _open_order = OpenOrder {
+                    price: order.price,
+                    quantity: order.quantity,
+                    side: order.side,
+                    user_id: order.user_id,
+                    order_id: order_id,
+                    filled_quantity: 0.0,
+                };
+                self.bids.entry(order.price.to_string());
+            }
+            Side::Sell => {
+                let _open_order = OpenOrder {
+                    price: order.price,
+                    quantity: order.quantity,
+                    side: order.side,
+                    user_id: order.user_id,
+                    order_id: order_id,
+                    filled_quantity: 0.0,
+                };
+                self.asks.entry(order.price.to_string());
+            }
         }
     }
-      //implement delete function for orderbook
-      // implement get_depth function for orderbook
-    
+    pub fn delete_order(&mut self, order: DeleteOrderInput) {
+        if let Some(price) = self.bids.iter().find_map(|(price, orders)| {
+            if orders.iter().any(|o| o.order_id == order.order_id) {
+                Some(price.clone())
+            } else {
+                None
+            }
+        }) {
+            if let Some(orders) = self.bids.get_mut(&price) {
+                orders.retain(|o| o.order_id != order.order_id);
+            }
+        }
+    }
 
+    pub fn  get_depth(&self) -> DepthResponse{
+        let mut bids = Vec::new();
+        let mut asks = Vec::new();
+        for(price,orders) in self.bids.iter(){
+            bids.push(Depth {
+                price: price.parse().unwrap(),
+                quantity:orders.iter().map(|o| o.quantity).sum()
+            })
+        } 
+        for(price,orders) in self.asks.iter(){
+            asks.push(Depth{
+                price: price.parse().unwrap(),
+                quantity: orders.iter().map(|o| o.quantity).sum()
+            })
+        }
+        DepthResponse{bids,asks}
+
+    }
 }

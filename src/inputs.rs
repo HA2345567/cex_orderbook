@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateOrderInput {
-    pub price: u32,
-    pub quantity: u32,
-    pub user_id: u32,
+    pub price: f64,
+    pub quantity: f64,
+    pub user_id: String,
     pub side: Side,
 }
 
@@ -14,10 +14,8 @@ pub enum Side {
     Buy,
     Sell
 }
-
-
-
 #[derive(Debug, Serialize, Deserialize)]
-pub  struct DeleteOrder{
-   pub order_id: String
+pub  struct DeleteOrderInput{
+   pub order_id: String,
+   pub user_id:  String
 }

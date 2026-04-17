@@ -1,21 +1,25 @@
 use serde::{Deserialize, Serialize};
-use crate::inputs::CreateOrderInput;
 
 #[derive(Serialize)]
-pub struct OrderResponse {
-    pub message: String,
-    pub order: CreateOrderInput,
+pub struct CreateOrderResponse {
+   pub order_id: String,
+   pub filled_quantity: f64,
+   pub remaining_quantity:f64,
+   pub average_price: f64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DeleteOrderResponse{
-    pub failed_qty: u32,
-    pub average_price:u32,
+    pub success: bool,
+    pub remaining_quantity:f64,
+    pub filled_quantity:f64,
+    pub average_price:f64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Depth{
     pub bids: Vec<[u32;2]>,
     pub asks: Vec<[u32;2]>,
-    pub lastUpdateId:String
+    #[serde(rename = "lastUpdateId")]
+    pub last_update_id: String,
 }

@@ -172,3 +172,6 @@ What is not implemented yet:
 ## Notes
 
 This README documents the project as it exists today, not as a fully completed exchange engine. That matters because the code is a solid foundation, but anyone cloning the repo should understand it is currently a scaffold moving toward a more complete matching system.
+
+
+

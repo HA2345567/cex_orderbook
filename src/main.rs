@@ -13,11 +13,11 @@ pub mod orderbook;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    let orderbook = Arc::new(Mutex::new(Orderbook::new()));
+    let orderbook = Arc::new(Mutex::new(Orderbook::default()));
 
     HttpServer::new(move || {
         App::new()
-            .app_data(orderbook.clone())
+            .app_data(Data::new(orderbook.clone()))
             .service(create_order)
             .service(delete_order)
             .service(get_depth)
@@ -26,5 +26,4 @@ async fn main() -> Result<(), std::io::Error> {
     .run()
     .await
 }
-
 
