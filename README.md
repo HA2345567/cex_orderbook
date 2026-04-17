@@ -1,45 +1,61 @@
 # CEX Orderbook
 
-![CEX Orderbook Architecture](/public/cex_orderbook_image_01.png)
+![CEX Orderbook Architecture](public/cex_orderbook_image_01.png)
 
-Rust-based centralized exchange orderbook API scaffold built with Actix Web. The project exposes a small HTTP surface for creating orders, cancelling orders, and reading market depth, with the code structured to evolve into an in-memory matching engine.
+Small Actix Web service that exposes a starter HTTP API for a centralized-exchange-style orderbook. The project already has shared in-memory state, typed request and response models, and route handlers for order creation, order deletion, and depth reads.
 
-## Overview
+This is still a prototype. The API surface exists, but the matching engine and full orderbook persistence are not finished yet.
 
-This repository is an early backend foundation for a CEX-style orderbook service. It focuses on clean request/response handling, typed payloads with Serde, and a route layout that is simple to extend as matching, persistence, and concurrency controls are added.
+## Current Implementation
 
-Current HTTP endpoints:
+The server boots an `Arc<Mutex<Orderbook>>` in [`src/main.rs`](src/main.rs) and injects it into the handlers in [`src/routes.rs`](src/routes.rs).
 
-- `POST /order` accepts a new order payload and echoes a created-order response.
-- `DELETE /order/{id}` is wired as an order cancellation route and currently returns a placeholder response body.
-- `GET /depth` returns a depth snapshot structure with bids, asks, and a `lastUpdateId`.
+Implemented routes:
 
-## Why This Project
+- `POST /order`
+- `DELETE /order/{id}`
+- `GET /depth`
 
-An orderbook service is a useful systems exercise because it sits at the intersection of:
+Core modules:
 
-- low-latency request handling
-- predictable data modeling
-- concurrent reads and writes
-- clean API design for trading clients
-
-This codebase is set up as the first step toward those goals rather than a finished exchange engine.
+```text
+src/
+  main.rs        # server bootstrap and shared state wiring
+  routes.rs      # HTTP handlers
+  inputs.rs      # request DTOs
+  output.rs      # response DTOs used by create/delete handlers
+  orderbook.rs   # in-memory orderbook data structures
+```
 
 ## Tech Stack
 
 - Rust `edition = "2024"`
 - Actix Web `4.13`
-- Serde for JSON serialization and deserialization
+- Serde and Serde JSON
 
-## Project Structure
+## Running Locally
+
+Prerequisites:
+
+- Rust toolchain installed
+- Cargo available in your shell
+
+Start the server:
+
+```bash
+cargo run
+```
+
+Default bind address:
 
 ```text
-src/
-  main.rs        # HTTP server bootstrap and route registration
-  routes.rs      # REST handlers for orders and depth
-  inputs.rs      # request payload types
-  output.rs      # response payload types
-  orderbook.rs   # initial orderbook model
+127.0.0.1:8080
+```
+
+Optional verification:
+
+```bash
+cargo check
 ```
 
 ## API
@@ -52,126 +68,113 @@ Request body:
 
 ```json
 {
-  "price": 100,
-  "quantity": 2,
-  "user_id": 42,
+  "price": 100.0,
+  "quantity": 2.5,
+  "user_id": "user-1",
   "side": "Buy"
 }
 ```
 
-Current response:
+Current response shape:
 
 ```json
 {
-  "message": "order created",
-  "order": {
-    "price": 100,
-    "quantity": 2,
-    "user_id": 42,
-    "side": "Buy"
-  }
+  "order_id": "0",
+  "filled_quantity": 0.0,
+  "remaining_quantity": 2.5,
+  "average_price": 100.0
 }
 ```
+
+Notes:
+
+- `order_id` is generated from an incrementing in-memory counter.
+- The handler locks the shared orderbook before calling `create_order`.
 
 ### Delete Order
 
 `DELETE /order/{id}`
 
-The route is present and returns a placeholder cancellation summary.
-
-Current response:
+Current request body:
 
 ```json
 {
-  "failed_qty": 0,
-  "average_price": 100
+  "order_id": "0",
+  "user_id": "user-1"
 }
 ```
 
-Note: the handler currently reads a JSON body with `order_id`, while the route path also includes `{id}`. That mismatch is a good next cleanup target.
+Current response shape:
+
+```json
+{
+  "success": true,
+  "remaining_quantity": 0.0,
+  "filled_quantity": 0.0,
+  "average_price": 0.0
+}
+```
+
+Notes:
+
+- The path parameter `{id}` exists in the route, but the handler currently uses the JSON body instead.
+- Deletion logic currently checks only the bid side of the book.
 
 ### Get Depth
 
 `GET /depth`
 
-Current response:
+Current response shape:
 
 ```json
 {
   "bids": [],
-  "asks": [],
-  "lastUpdateId": "dsfdkf"
+  "asks": []
 }
 ```
 
-## Local Development
+Depth is built by aggregating order quantities by price level from the in-memory maps.
 
-### Prerequisites
+## Important Limitations
 
-- Rust toolchain installed
-- Cargo available in your shell
+This README describes the code as it exists now, and there are a few gaps worth calling out clearly:
 
-### Run
-
-```bash
-cargo run
-```
-
-The server binds to:
-
-```text
-127.0.0.1:8080
-```
-
-### Check Build
-
-```bash
-cargo check
-```
+- `create_order` constructs an `OpenOrder`, but it does not currently push that order into the stored bid or ask vectors.
+- Because orders are not being inserted into the book yet, `GET /depth` will remain empty during normal API usage.
+- `DELETE /order/{id}` does not currently use the route id and does not remove sell-side orders.
+- There is no matching engine, partial-fill logic, validation layer, persistence layer, or authentication.
 
 ## Design Direction
 
-The intended architecture is an in-memory orderbook with a write path for order mutations and a fast read path for depth snapshots. The cover diagram reflects that direction: multiple HTTP reader threads can serve depth requests while order creation mutates shared order state.
+The structure is pointed in the right direction for a simple in-memory exchange service:
 
-For the next iteration, a strong implementation path would be:
+- route handlers already share a single orderbook instance
+- request and response DTOs are separated from the server bootstrap
+- the orderbook type is isolated for future matching and aggregation logic
 
-- move orderbook state into shared application state
-- use `web::Data` to inject the orderbook into handlers
-- separate route DTOs from core matching-engine models
-- implement price-time priority matching
-- maintain derived depth snapshots for faster reads
-- add tests for matching, cancellation, and depth generation
+The next practical steps are:
 
-## Current Status
+1. Store created orders inside `bids` and `asks`.
+2. Make deletion use the route id or remove the unused path parameter.
+3. Support deletion on both sides of the book.
+4. Add matching and fill accounting.
+5. Return real depth generated from persisted orders.
+6. Add route and orderbook tests.
+
+## Status
 
 What is already in place:
 
+- compileable Actix Web server
+- shared in-memory orderbook state
 - typed request and response models
-- Actix route macros and server bootstrap
-- starter orderbook model
-- compileable API scaffold
+- basic route wiring for create, delete, and depth
 
-What is not implemented yet:
+What is still missing:
 
-- real order insertion into the orderbook
-- matching logic
-- persistence
-- authentication
+- actual order storage from the create endpoint
+- matching and trade execution
+- robust cancellation behavior
 - validation and error handling
-- concurrent state management
-
-## Roadmap
-
-1. Introduce shared in-memory state for bids and asks.
-2. Implement order insertion and cancellation against the in-memory book.
-3. Add matching logic and partial-fill accounting.
-4. Generate real depth snapshots from book state.
-5. Add integration tests for each route.
-6. Add benchmarking and concurrency validation.
-
-## Notes
-
-This README documents the project as it exists today, not as a fully completed exchange engine. That matters because the code is a solid foundation, but anyone cloning the repo should understand it is currently a scaffold moving toward a more complete matching system.
-
-
-
+- persistence and recovery
+- tests and benchmarking
