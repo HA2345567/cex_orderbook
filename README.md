@@ -1,6 +1,6 @@
 # CEX Orderbook
 
-![CEX Orderbook Architecture](public/cex_orderbook_image_01.png)
+![CEX Orderbook Architecture](public/orderbook_newpic.jpg)
 
 Small Actix Web service that exposes a starter HTTP API for a centralized-exchange-style orderbook. The project already has shared in-memory state, typed request and response models, and route handlers for order creation, order deletion, and depth reads.
 
